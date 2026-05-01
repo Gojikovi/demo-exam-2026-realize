@@ -11,6 +11,29 @@ allow 0.0.0.0/0
 systemctl enable --now chronyd
 ```
 
+### 🍃 BR-RTR
+
+```
+ntp server 172.16.5.1
+show ntp status
+
+security-profile 0
+rule 0 permit tcp any any eq 22
+security 0
+
+write memory
+```
+
+### 🍃 HQ-RTR
+
+```
+security-profile 0
+rule 0 permit tcp any any eq 22
+security 0
+
+write memory
+```
+
 ### 🐧 HQ-SRV
 
 ```
@@ -53,20 +76,32 @@ vim /etc/fstab
 mount -av
 ```
 
-
-
-
-
-
-
-
-
-
 ### 🐧 BR-SRV
 
 ```
+apt-get update
+apt-get install chrony -y
+vim /etc/chrony.conf
+#pool pool.ntp.org iburst
+server 172.16.5.1 iburst
+systemctl enable --now chronyd
 
+ssh sshuser@192.168.1.10 -p 2026
+ssh user@192.168.2.10
+
+apt-get update
+apt-get install ansible sshpass -y
+vim /etc/ansible/hosts
+[hq]
+HQ-SRV ansible_port=2026 ansible_host=192.168.1.10 ansible_user=sshuser ansible_ssh_pass=P@ssw0rd ansible_python_interpreter=/usr/bin/python3
+HQ-CLI ansible_host=192.168.2.10 ansible_user=user ansible_ssh_pass=resu ansible_python_interpreter=/usr/bin/python3
+
+[routers]
+HQ-RTR ansible_host=192.168.1.1 ansible_user=admin ansible_password=admin ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
+BR-RTR ansible_host=192.168.3.1 ansible_user=admin ansible_password=admin ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
+ansible all -m ping
 ```
+
 
 
 
