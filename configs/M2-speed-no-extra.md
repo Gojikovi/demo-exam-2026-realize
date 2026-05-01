@@ -244,8 +244,6 @@ server {
 }
 nginx -t
 systemctl restart nginx
-
-
 ```
 
 ### 🐧 HQ-CLI
@@ -296,16 +294,18 @@ rm -rf /var/lib/samba
 mkdir -p /var/lib/samba/sysvol
 
 systemctl stop docker
-realm - AU-TEAM.IRPO
-domain - AU-TEAM
-server-role - dc
-dns-backend - SAMBA_INTERNAL
+samba-tool domain provision
+realm - AU-TEAM.IRPO  (press Enter)
+domain - AU-TEAM  (press Enter)
+server-role - dc  (press Enter)
+dns-backend - SAMBA_INTERNAL  (press Enter)
 dns-forwarder - 192.168.1.10
 adminpass - P@ssw0rd!
 
 cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
 
 systemctl enable --now samba
+systemctl start docker
 
 host -t SRV _ldap._tcp.au-team.irpo
 kinit administrator
@@ -341,6 +341,7 @@ EDITOR=nano visudo
 %hq ALL=(ALL) NOPASSWD: /bin/cat, /bin/grep, /usr/bin/id
 
 reboot
+
 su - hquser1
 sudo id
 sudo cat /etc/passwd
