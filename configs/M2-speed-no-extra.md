@@ -183,8 +183,12 @@ systemctl restart httpd2
 ### 🐧 HQ-CLI
 
 ```
-
+http://192.168.1.10
+http://192.168.3.10:8080
 ```
+7 tasks done
+---
+
 
 
 
