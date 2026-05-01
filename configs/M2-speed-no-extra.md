@@ -109,12 +109,53 @@ ansible all -m ping
 5 tasks done
 ---
 
+### 🐧 BR-SRV
+
+```
+apt-get install -y docker-engine docker-compose
+systemctl enable --now docker
+mkdir /mnt/cdrom
+mount /dev/sr0 /mnt/cdrom
+ls /mnt/cdrom/docker
+cd /mnt/cdrom/docker
+docker load -i site_latest.tar
+docker load -i mariadb_latest.tar
+mkdir /usr/docker
+vim /usr/docker/docker-compose.yml
+services:
+  testapp:
+    image: site:latest
+    container_name: testapp
+    restart: always
+    ports:
+      - "8080:8000"
+    environment:
+      DB_TYPE: maria
+      DB_HOST: db
+      DB_NAME: testdb
+      DB_PORT: 3306
+      DB_USER: test
+      DB_PASS: P@ssw0rd
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:10.11
+    container_name: db
+    restart: always
+    environment:
+      MARIADB_DATABASE: testdb
+      MARIADB_USER: test
+      MARIADB_PASSWORD: P@ssw0rd
+      MARIADB_ROOT_PASSWORD: rootpass
+cd /usr/docker
+docker compose up -d
+docker ps -a
+```
+
 ### 🐧 HQ-SRV
 
 ```
-apt-get update
-apt-get install httpd2 apache2-mod_php8.1 php8.1 php8.1-mysqlnd php8.1-mysqli -y
-
 
 ```
 
