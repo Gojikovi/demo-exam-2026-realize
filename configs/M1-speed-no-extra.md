@@ -7,8 +7,6 @@
 ```
 hostnamectl set-hostname ISP;exec bash
 
-echo HTTP_PROXY=http://10.0.21.52:3128 >> /etc/sysconfig/network
-reboot
 mkdir /etc/net/ifaces/ens19
 mkdir /etc/net/ifaces/ens20
 echo 'TYPE=eth' > /etc/net/ifaces/ens19/options 
@@ -255,6 +253,8 @@ show ip route ospf
 ```
 hostnamectl set-hostname br-srv.au-team.irpo;exec bash
 
+echo HTTP_PROXY=http://10.0.21.52:3128 >> /etc/sysconfig/network
+reboot
 echo 192.168.2.2/28 > /etc/net/ifaces/ens18/ipv4address
 echo default via 192.168.2.1 > /etc/net/ifaces/ens18/ipv4route
 systemctl restart network
