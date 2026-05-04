@@ -890,10 +890,58 @@ write memory - команда для записи изменений в марш
 
 ![Шаг 1](../pictures-r/pve-finish-create.png)
 
-Получили созданную ВМ. Далее запускаем её (Power on) и устанавливаем ОС proxmox ve.
+Получили созданную ВМ
 
 ![Шаг 1](../pictures-r/pve-created-vm.png)
 
+Перед запуском заходим в настройки и включаем во вкладке "Processors" параметр "Virtualize Intel VT-x/EPT or AMD-V/RVI"
+
+![Шаг 1](../pictures-r/pve-change-virtualization-engine.png)
+
+---
+
 ### Шаг 2 - Установка PVE
 
+Запускаем (power on). Жмём Enter для установки PVE с возможностью управления через веб-интерфейс
 
+![Шаг 2](../pictures-r/pve-install-graphical.png)
+
+Соглашаемся с EULA, жмём "I agree".
+
+![Шаг 2](../pictures-r/pve-eula-agree.png)
+
+В данном окне выбираем диск на который накатится PVE. В "options" дополнительно можно самим задать выделяемый размер из диска для pve. Жмём "Next"
+
+![Шаг 2](../pictures-r/pve-info-choose-disk.png)
+
+Выставляем страну и часовую зону. Раскладку клавиатуры не меняем
+
+![Шаг 2](../pictures-r/pve-time-zone-country-select.png)
+
+Выставлеям пароль для учётки root и заполняем email. В email главное чтобы не было invalid в конце, можно указать любой
+
+![Шаг 2](../pictures-r/pve-pass-email.png)
+
+Выбираем основной интерфейс для работы PVE. Это должен быть NAT адаптер. Параметры заполнились автоматически. Можно изменить hostname или оставить таким же. Жмём "Next"
+
+![Шаг 2](../pictures-r/pve-int-select.png)
+
+Здесь смотрим на конечную информацию и жмём "Install"
+
+![Шаг 2](../pictures-r/pve-summary-install.png)
+
+![Шаг 2](../pictures-r/pve-installing-process.png)
+
+PVE успешно установлен. Дальше развернём стенд в веб-интерфейсе.
+
+![Шаг 2](../pictures-r/pve-installed.png)
+
+Смотрим на ip в баннере. Заходим в браузер и вбиваем https://ip-address:8006/
+
+Откроется веб-интерфейс. Логинимся под root учёткой.
+
+![Шаг 2](../pictures-r/)
+
+![Шаг 2](../pictures-r/)
+
+![Шаг 2](../pictures-r/)
