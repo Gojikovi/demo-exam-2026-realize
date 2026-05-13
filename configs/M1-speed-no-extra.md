@@ -129,6 +129,8 @@ write memory
 ```
 hostnamectl set-hostname hq-srv.au-team.irpo;exec bash
 
+vim /etc/net/ifaces/ens18/options
+BOOTPROTO=static
 echo 192.168.1.2/27 > /etc/net/ifaces/ens18/ipv4address
 echo default via 192.168.1.1 > /etc/net/ifaces/ens18/ipv4route
 systemctl restart network
@@ -188,7 +190,6 @@ hostnamectl set-hostname hq-cli.au-team.irpo;exec bash
 nano /etc/net/ifaces/ens18/options
 NM_CONTROLLED=no
 DISABLED=no
-BOOTPROTO=dhcp
 systemctl restart network
 
 timedatectl set-timezone Europe/Moscow
@@ -253,8 +254,8 @@ show ip route ospf
 ```
 hostnamectl set-hostname br-srv.au-team.irpo;exec bash
 
-echo HTTP_PROXY=http://10.0.21.52:3128 >> /etc/sysconfig/network
-reboot
+vim /etc/net/ifaces/ens18/options
+BOOTPROTO=static
 echo 192.168.2.2/28 > /etc/net/ifaces/ens18/ipv4address
 echo default via 192.168.2.1 > /etc/net/ifaces/ens18/ipv4route
 systemctl restart network
