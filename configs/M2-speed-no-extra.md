@@ -14,7 +14,7 @@ systemctl enable --now chronyd
 ### 🍃 BR-RTR
 
 ```
-ntp server 172.16.5.1
+ntp server 172.16.2.1
 show ntp status
 
 security-profile 0
@@ -37,6 +37,13 @@ write memory
 ### 🐧 HQ-SRV
 
 ```
+apt-get update && apt-get install chrony nfs-server -y
+
+vim /etc/chrony.conf
+#pool pool.ntp.org iburst
+server 172.16.4.1 iburst
+systemctl enable --now chronyd
+
 mdadm --create /dev/md0 -l0 -n 2 /dev/sdb /dev/sdc
 mkfs.ext4 /dev/md0
 echo "DEVICE partitions" > /etc/mdadm.conf
@@ -45,13 +52,6 @@ mkdir /raid
 vim /etc/fstab
 /dev/md0	/raid	ext4	defaults	0	0
 mount -av
-
-apt-get update
-apt-get install chrony nfs-server -y
-vim /etc/chrony.conf
-#pool pool.ntp.org iburst
-server 172.16.4.1 iburst
-systemctl enable --now chronyd
 
 systemctl enable --now nfs-server
 mkdir /raid/nfs
@@ -63,13 +63,11 @@ exportfs -rav
 ### 🐧 HQ-CLI
 
 ```
-apt-get update
-apt-get install yandex-browser-stable -y
-yandex-browser-stable
+apt-get update && apt-get install yandex-browser-stable -y
 
 vim /etc/chrony.conf
 #pool pool.ntp.org iburst
-server 172.16.4.1 iburst
+server 172.16.1.1 iburst
 systemctl enable --now chronyd
 chronyc sources
 
@@ -83,26 +81,25 @@ mount -av
 ### 🐧 BR-SRV
 
 ```
-apt-get update
-apt-get install chrony -y
+apt-get update && apt-get install chrony -y
 vim /etc/chrony.conf
 #pool pool.ntp.org iburst
-server 172.16.5.1 iburst
+server 172.16.2.1 iburst
 systemctl enable --now chronyd
 
-ssh sshuser@192.168.1.10 -p 2026
-ssh user@192.168.2.10
+ssh sshuser@192.168.1.2 -p 2026
+ssh user@192.168.1.34
 
-apt-get update
-apt-get install ansible sshpass -y
+apt-get update && apt-get install ansible sshpass -y
 vim /etc/ansible/hosts
 [hq]
-HQ-SRV ansible_port=2026 ansible_host=192.168.1.10 ansible_user=sshuser ansible_ssh_pass=P@ssw0rd ansible_python_interpreter=/usr/bin/python3
-HQ-CLI ansible_host=192.168.2.10 ansible_user=user ansible_ssh_pass=resu ansible_python_interpreter=/usr/bin/python3
+HQ-SRV ansible_port=2026 ansible_host=192.168.1.2 ansible_user=sshuser ansible_ssh_pass=P@ssw0rd ansible_python_interpreter=/usr/bin/python3
+HQ-CLI ansible_host=192.168.1.34 ansible_user=user ansible_ssh_pass=resu ansible_python_interpreter=/usr/bin/python3
 
 [routers]
 HQ-RTR ansible_host=192.168.1.1 ansible_user=admin ansible_password=admin ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
-BR-RTR ansible_host=192.168.3.1 ansible_user=admin ansible_password=admin ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
+BR-RTR ansible_host=192.168.2.1 ansible_user=admin ansible_password=admin ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
+
 ansible all -m ping
 ```
 5 tasks done - easy
@@ -148,6 +145,7 @@ services:
       MARIADB_PASSWORD: P@ssw0rd
       MARIADB_ROOT_PASSWORD: rootpass
 cd /usr/docker
+docker-compose config
 docker compose up -d
 docker ps -a
 ```
@@ -183,23 +181,23 @@ systemctl restart httpd2
 ### 🐧 HQ-CLI
 
 ```
-http://192.168.1.10
-http://192.168.3.10:8080
+http://192.168.1.2
+http://192.168.2.2:8080
 ```
 
 ### 🍃 HQ-RTR
 
 ```
-ip nat source static tcp 192.168.1.10 80 172.16.4.4 8080
-ip nat source static tcp 192.168.1.10 2026 172.16.4.4 2026
+ip nat source static tcp 192.168.1.2 80 172.16.1.1 8080
+ip nat source static tcp 192.168.1.2 2026 172.16.1.1 2026
 write memory
 ```
 
 ### 🍃 BR-RTR
 
 ```
-(config)#ip nat source static tcp 192.168.3.10 8080 172.16.5.5 8080
-(config)#ip nat source static tcp 192.168.3.10 2026 172.16.5.5 2026
+(config)#ip nat source static tcp 192.168.2.2 8080 172.16.2.1 8080
+(config)#ip nat source static tcp 192.168.2.2 2026 172.16.2.1 2026
 write memory
 ```
 8 tasks done - normal
@@ -213,8 +211,7 @@ DNAT здесь исходя из смысла
 ### 🐧 ISP
 
 ```
-apt-get update
-apt-get install nginx apache2-htpasswd -y
+apt-get update && apt-get install nginx apache2-htpasswd -y
 systemctl enable --now nginx
 htpasswd -c /etc/nginx/.htpasswd WEB
 P@ssw0rd
@@ -226,7 +223,7 @@ server {
     auth_basic_user_file /etc/nginx/.htpasswd;
 
     location / {
-        proxy_pass http://172.16.4.4:8080;
+        proxy_pass http://172.16.1.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -237,7 +234,7 @@ server {
     server_name docker.au-team.irpo;
 
     location / {
-        proxy_pass http://172.16.5.5:8080;
+        proxy_pass http://172.16.2.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -260,15 +257,15 @@ http://docker.au-team.irpo
 ```
 vim /etc/resolv.conf
 search au-team.irpo
-nameserver 192.168.3.10
-nameserver 192.168.1.10
+nameserver 192.168.2.2
+nameserver 192.168.1.2
 ```
 
 ### 🐧 HQ-SRV - not important i think, but perfectly
 
 ```
 vim /etc/dnsmasq.conf
-server=/au-team.irpo/192.168.3.10
+server=/au-team.irpo/192.168.2.2
 systemctl restart dnsmasq
 ```
 
@@ -278,12 +275,12 @@ systemctl restart dnsmasq
 # Part 1
 vim /etc/hosts
 127.0.0.1 localhost
-192.168.3.10 BR-SRV.au-team.irpo BR-SRV
+192.168.2.2 BR-SRV.au-team.irpo BR-SRV
 
 vim /etc/resolv.conf
 search au-team.irpo
-nameserver 192.168.3.10
-nameserver 192.168.1.10
+nameserver 192.168.2.2
+nameserver 192.168.1.2
 
 apt-get update
 apt-get install task-samba-dc task-auth-ad-sssd -y
@@ -299,7 +296,7 @@ realm - AU-TEAM.IRPO  (press Enter)
 domain - AU-TEAM  (press Enter)
 server-role - dc  (press Enter)
 dns-backend - SAMBA_INTERNAL  (press Enter)
-dns-forwarder - 192.168.1.10
+dns-forwarder - 192.168.1.2
 adminpass - P@ssw0rd!
 
 cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
