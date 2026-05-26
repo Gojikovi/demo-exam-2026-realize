@@ -44,7 +44,7 @@ HQ-RTR -> ISP: 172.16.1.2/28
 
 Нажимаем "Вычислить". Получаем готовую табличку для VLAN 100, VLAN 200 и VLAN 999
 
-<img width="912" height="319" alt="image" src="https://github.com/user-attachments/assets/4b0d65e8-e642-4017-8a0f-42b1fe37b638" />
+<img width="910" height="438" alt="image" src="https://github.com/user-attachments/assets/35bd13ca-7d47-41fe-8fbd-99e5c827edfd" />
 
 ---
 
