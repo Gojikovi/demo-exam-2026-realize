@@ -15,8 +15,7 @@ echo 172.16.1.1/28 > /etc/net/ifaces/ens19/ipv4address
 echo 172.16.2.1/28 > /etc/net/ifaces/ens20/ipv4address
 systemctl restart network
 
-apt-get update
-apt-get install tzdata nftables -y
+apt-get update && apt-get install tzdata nftables -y
 exec bash
 timedatectl set-timezone Europe/Moscow
 
@@ -71,12 +70,12 @@ connect port te1 service-instance te1/srv-net
 ip nat inside
 
 interface e3
-ip address 192.168.1.33/28
+ip address 192.168.1.33/27
 connect port te1 service-instance te1/cli-net
 ip nat inside
 
 interface e4
-ip address 192.168.1.49/29
+ip address 192.168.1.65/29
 connect port te1 service-instance te1/management
 ip nat inside
 
@@ -86,14 +85,12 @@ username net_admin
 password P@ssw0rd
 role admin
 
-write memory
-
 ip pool dhcp 1
-range 192.168.1.34-192.168.1.46
+range 192.168.1.34-192.168.1.62
 
 dhcp-server 1
 pool dhcp 64
-mask 255.255.255.240
+mask 255.255.255.224	
 gateway 192.168.1.33
 dns 192.168.1.2
 domain-name au-team.irpo
@@ -101,7 +98,7 @@ domain-name au-team.irpo
 interface e3
 dhcp-server 1
 
-ip nat pool nat 192.168.1.1-192.168.1.30,192.168.1.33-192.168.1.46,192.168.1.49-192.168.1.54
+ip nat pool nat 192.168.1.1-192.168.1.30,192.168.1.33-192.168.1.62,192.168.1.65-192.168.1.70
 ip nat source dynamic inside-to-outside pool nat overload interface e1
 
 ip route 0.0.0.0/0 172.16.1.1 description default
@@ -153,8 +150,6 @@ username net_admin
 password P@ssw0rd
 role admin
 
-write memory
-
 ip nat pool nat 192.168.2.1-192.168.2.14
 ip nat source dynamic inside-to-outside pool nat overload interface e1
 
@@ -173,8 +168,6 @@ passive-interface default
 no passive-interface tunnel.1
 
 write memory
-show ip ospf neighbor
-show ip route ospf
 ```
 
 ### 🐧 HQ-CLI
@@ -243,10 +236,7 @@ AllowUsers sshuser
 echo Authorized access only > /etc/openssh/banner
 systemctl restart sshd
 
-echo HTTP_PROXY=http://10.0.21.52:3128 >> /etc/sysconfig/network
-reboot
-apt-get update
-apt-get install dnsmasq -y
+apt-get update && apt-get install dnsmasq -y
 echo 'OPTIONS=""' > /etc/sysconfig/dnsmasq
 systemctl restart network
 cat <<'EOT' > /etc/dnsmasq.conf
