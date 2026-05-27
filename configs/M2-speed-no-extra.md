@@ -340,7 +340,7 @@ sudo id
 sudo cat /etc/passwd
 sudo bash
 ```
-All 12 tasks done - very hard
+All 11 tasks done - very hard
 ---
 
 ### Принцип: сколько успел - столько успел и столько баллов получил за выполненные задания
