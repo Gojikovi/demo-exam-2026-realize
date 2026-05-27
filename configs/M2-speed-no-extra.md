@@ -282,7 +282,6 @@ nameserver 192.168.1.2
 apt-get update
 apt-get install task-samba-dc task-auth-ad-sssd -y
 
-systemctl stop samba
 rm -f /etc/samba/smb.conf
 rm -rf /var/lib/samba
 mkdir -p /var/lib/samba/sysvol
