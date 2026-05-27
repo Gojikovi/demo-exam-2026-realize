@@ -208,8 +208,8 @@ curl http://172.16.1.1:8080
 curl http://172.16.2.1:8080
 
 systemctl enable --now sshd
-ssh ssh@172.16.1.1 -p 2026
-ssh ssh@172.16.2.1 -p 2026
+ssh sshuser@172.16.1.1 -p 2026
+ssh sshuser@172.16.2.1 -p 2026
 ```
 
 8 tasks done - normal
