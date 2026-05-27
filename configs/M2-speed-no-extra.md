@@ -15,7 +15,6 @@ systemctl enable --now chronyd
 
 ```
 ntp server 172.16.2.1
-show ntp status
 
 security-profile 0
 rule 0 permit tcp any any eq 22
@@ -41,7 +40,7 @@ apt-get update && apt-get install chrony nfs-server -y
 
 vim /etc/chrony.conf
 #pool pool.ntp.org iburst
-server 172.16.4.1 iburst
+server 172.16.1.1 iburst
 systemctl enable --now chronyd
 
 mdadm --create /dev/md0 -l0 -n 2 /dev/sdb /dev/sdc
