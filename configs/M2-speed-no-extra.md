@@ -199,13 +199,26 @@ write memory
 (config)#ip nat source static tcp 192.168.2.2 2026 172.16.2.1 2026
 write memory
 ```
+
+### 🐧 ISP
+
+```
+apt-get install curl -y
+curl http://172.16.1.1:8080
+curl http://172.16.2.1:8080
+
+systemctl enable --now sshd
+ssh ssh@172.16.1.1 -p 2026
+ssh ssh@172.16.2.1 -p 2026
+```
+
 8 tasks done - normal
 ---
 DNAT здесь исходя из смысла
 
 Можно хоть вначале сделать, но если не успеть сделать приложения - DNAT бесполезен на половину
 
-Присутсвует риск - проверка DNAT исключается в целях экономии времени
+Проверку DNAT можно исключить в целях экономии времени
 
 ### 🐧 ISP
 
