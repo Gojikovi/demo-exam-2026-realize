@@ -102,3 +102,5 @@ mydocs        - личные заметки, вспомогательные фа
 Мне будет приятно, и это поможет другим найти этот проект.
 
 https://github.com/DenTret/demo2026
+
+https://disk.yandex.ru/d/1jAIRHMGmiz3GQ
