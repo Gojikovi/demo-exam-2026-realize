@@ -5,10 +5,31 @@
 ### 🐧 ISP
 
 ```
-hostnamectl set-hostname ISP;exec bash
+hostnamectl set-hostname ISP; exec bash
+
+mkdir /etc/net/ifaces/ens3
+vim /etc/net/ifaces/ens3/options
+TYPE=eth
+CONFIG_WIRELESS=no
+BOOTPROTO=dhcp
+SYSTEMD_BOOTPROTO=dhcp4
+CONFIG_IPV4=yes
+DISABLED=no
+NM_CONTROLLED=no
+SYSTEMD_CONTROLLED=no
 
 mkdir /etc/net/ifaces/ens19
 mkdir /etc/net/ifaces/ens20
+vim /etc/net/ifaces/ens19/optinons
+TYPE=eth
+CONFIG_WIRELESS=no
+BOOTPROTO=static
+SYSTEMD_BOOTPROTO=static
+CONFIG_IPV4=yes
+DISABLED=no
+NM_CONTROLLED=no
+SYSTEMD_CONTROLLED=no
+
 echo 'TYPE=eth' > /etc/net/ifaces/ens19/options 
 echo 'TYPE=eth' > /etc/net/ifaces/ens20/options
 echo 172.16.1.1/28 > /etc/net/ifaces/ens19/ipv4address 
@@ -25,7 +46,7 @@ flush ruleset
 table ip nat {
  chain postrouting {
   type nat hook postrouting priority srcnat
-  oifname "ens18" masquerade
+  oifname "ens3" masquerade
  }
 }
 EOT
