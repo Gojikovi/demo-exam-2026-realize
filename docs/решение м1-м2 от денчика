@@ -1,0 +1,785 @@
+# ⏱ Модуль 1 — Быстрый готовый конфиг с командами без лишнего 🔥
+
+## Заточен под реальный стенд на Proxmox в колледже
+
+
+Заполни таблицу по заданию
+маску пиши не полностью а через /28 и тд
+для вланов используй не красивые адреса а 1 доступные
+
+hostnamectl set-hostname ISP;exec bash
+
+mkdir /etc/net/ifaces/ens19
+mkdir /etc/net/ifaces/ens20
+echo 'TYPE=eth' > /etc/net/ifaces/ens19/options 
+echo 'TYPE=eth' > /etc/net/ifaces/ens20/options
+
+# откуда взять IP: из таблицы адресации (сеть ISP-HQ)
+# СВЕРИТЬ С ЗАДАНИЕМ: маска /28, адрес 172.16.X.1
+echo 172.16.1.1/28 > /etc/net/ifaces/ens19/ipv4address 
+
+# откуда взять IP: из таблицы адресации (сеть ISP-BR)
+# СВЕРИТЬ С ЗАДАНИЕМ: маска /28, адрес 172.16.X.1
+echo 172.16.2.1/28 > /etc/net/ifaces/ens20/ipv4address
+
+systemctl restart network
+
+apt-get update
+apt-get install tzdata -y
+apt-get install nftables -y
+
+exec bash
+
+timedatectl set-timezone Europe/Moscow
+
+cat <<'EOT' > /etc/nftables/nftables.nft
+#!/usr/sbin/nft -f
+flush ruleset
+table ip nat {
+ chain postrouting {
+  type nat hook postrouting priority srcnat
+  oifname "ens18" masquerade
+ }
+}
+EOT
+
+systemctl enable --now nftables
+
+echo "net.ipv4.ip_forward = 1" >> /etc/net/sysctl.conf
+systemctl restart network
+
+cat /proc/sys/net/ipv4/ip_forward
+🍃 HQ-RTR
+text
+en
+conf t
+hostname hq-rtr.au-team.irpo
+ip domain-name au-team.irpo
+
+port te0
+service-instance te0/isp-hq
+encapsulation untagged
+ex
+ex
+
+port te1
+service-instance te1/srv-net
+# СВЕРИТЬ С ЗАДАНИЕМ: VLAN для HQ-SRV (100 или 113)
+encapsulation dot1q 100
+rewrite pop 1
+ex
+
+service-instance te1/cli-net
+# СВЕРИТЬ С ЗАДАНИЕМ: VLAN для HQ-CLI (200 или 213)
+encapsulation dot1q 200
+rewrite pop 1
+
+service-instance te1/management
+# СВЕРИТЬ С ЗАДАНИЕМ: VLAN для управления (999 или 813)
+encapsulation dot1q 999
+rewrite pop 1
+ex
+ex
+
+# откуда взять IP: из таблицы адресации (HQ-RTR внешний)
+interface e1
+ip address 172.16.1.2/28
+connect port te0 service-instance te0/isp-hq
+ip nat outside
+ex
+
+# откуда взять IP: из таблицы адресации (сеть HQ-SRV)
+# СВЕРИТЬ С ЗАДАНИЕМ: маска /27 или /26
+interface e2
+ip address 192.168.1.1/27
+connect port te1 service-instance te1/srv-net
+ip nat inside
+ex
+
+# откуда взять IP: из таблицы адресации (сеть HQ-CLI)
+# СВЕРИТЬ С ЗАДАНИЕМ: маска /28
+interface e3
+ip address 192.168.1.33/28
+connect port te1 service-instance te1/cli-net
+ip nat inside
+ex
+
+# откуда взять IP: из таблицы адресации (сеть управления)
+# СВЕРИТЬ С ЗАДАНИЕМ: маска /29
+interface e4
+ip address 192.168.1.49/29
+connect port te1 service-instance te1/management
+ip nat inside
+ex
+
+ntp timezone utc+3
+
+username net_admin
+# СВЕРИТЬ С ЗАДАНИЕМ: пароль (P@ssw0rd или P@$$word)
+password P@ssw0rd
+role admin
+ex
+
+# откуда взять IP: пул для HQ-CLI из сети HQ-CLI
+# СВЕРИТЬ С ЗАДАНИЕМ: диапазон зависит от сети HQ-CLI
+ip pool dhcp 1
+range 192.168.1.34-192.168.1.46
+ex
+
+dhcp-server 1
+pool dhcp 64
+# СВЕРИТЬ С ЗАДАНИЕМ: маска подсети HQ-CLI
+mask 255.255.255.240
+# откуда взять IP: шлюз HQ-RTR из сети HQ-CLI
+gateway 192.168.1.33
+# откуда взять IP: DNS-сервер (HQ-SRV)
+dns 192.168.1.2
+domain-name au-team.irpo
+ex
+exit
+
+interface e3
+dhcp-server 1
+ex
+
+# СВЕРИТЬ С ЗАДАНИЕМ: пул NAT (все внутренние IP офиса HQ)
+ip nat pool nat 192.168.1.1-192.168.1.30,192.168.1.33-192.168.1.46,192.168.1.49-192.168.1.54
+ip nat source dynamic inside-to-outside pool nat overload interface e1
+
+# откуда взять IP: шлюз по умолчанию (ISP)
+ip route 0.0.0.0/0 172.16.1.1 description default
+
+# откуда взять IP: локальный и удалённый адреса туннеля (из таблицы)
+interface tunnel.1
+ip add 192.168.10.1/30
+ip tunnel 172.16.1.2 172.16.2.2 mode gre
+ip ospf authentication
+# СВЕРИТЬ С ЗАДАНИЕМ: ключ OSPF
+ip ospf authentication-key P@$$word
+ex
+
+router ospf 1
+# откуда взять IP: сети из таблицы адресации
+network 192.168.10.0/30 area 0.0.0.0
+network 192.168.1.0/27 area 0.0.0.0
+network 192.168.1.32/28 area 0.0.0.0
+network 192.168.1.48/29 area 0.0.0.0
+passive-interface default
+no passive-interface tunnel.1
+ex
+
+write memory
+🐧 HQ-SRV
+bash
+hostnamectl set-hostname hq-srv.au-team.irpo;exec bash
+
+# откуда взять IP: из таблицы адресации (HQ-SRV)
+echo 192.168.1.2/27 > /etc/net/ifaces/ens18/ipv4address
+# откуда взять IP: шлюз HQ-RTR
+echo default via 192.168.1.1 > /etc/net/ifaces/ens18/ipv4route
+
+systemctl restart network
+
+timedatectl set-timezone Europe/Moscow
+
+# СВЕРИТЬ С ЗАДАНИЕМ: UID пользователя (1010 или 2013 или 2026)
+useradd -s /bin/bash -u 2026 sshuser
+echo "sshuser:P@ssw0rd" | chpasswd
+gpasswd -a sshuser wheel
+echo 'sshuser ALL = (root) NOPASSWD: ALL' >> /etc/sudoers
+
+vim /etc/openssh/sshd_config
+# СВЕРИТЬ С ЗАДАНИЕМ: порт SSH (2024 или 2013 или 2026)
+Port 2026
+MaxAuthTries 2
+Banner /etc/openssh/banner
+AllowUsers sshuser
+
+echo Authorized access only > /etc/openssh/banner
+systemctl restart sshd
+
+vim /etc/resolv.conf
+nameserver 77.88.8.8
+nameserver 77.88.8.1
+nameserver 8.8.8.8
+
+apt-get update
+apt-get install dnsmasq -y
+echo 'OPTIONS=""' > /etc/sysconfig/dnsmasq
+systemctl restart network
+
+cat <<'EOT' > /etc/dnsmasq.conf
+no-resolv
+no-poll
+no-hosts
+
+server=77.88.8.7
+server=195.208.4.1
+server=8.8.8.8
+
+cache-size=1000
+all-servers
+no-negcache
+
+# откуда взять IP: из таблицы адресации
+host-record=hq-rtr.au-team.irpo,192.168.1.1
+host-record=hq-srv.au-team.irpo,192.168.1.2
+host-record=hq-cli.au-team.irpo,192.168.1.34
+
+# откуда взять IP: из таблицы адресации (BR)
+address=/br-rtr.au-team.irpo/192.168.2.1
+address=/br-srv.au-team.irpo/192.168.2.2
+
+# СВЕРИТЬ С ЗАДАНИЕМ: доменные имена для прокси (web/docker или moodle/wiki)
+# откуда взять IP: из таблицы адресации (ISP внешний)
+address=/docker.au-team.irpo/172.16.1.1
+address=/web.au-team.irpo/172.16.2.1
+EOT
+
+systemctl enable --now dnsmasq
+🐧 HQ-CLI
+bash
+hostnamectl set-hostname hq-cli.au-team.irpo;exec bash
+
+cat <<EOF > /etc/net/ifaces/ens18/options
+NM_CONTROLLED=no
+DISABLED=no
+BOOTPROTO=dhcp
+EOF
+
+systemctl restart network
+
+timedatectl set-timezone Europe/Moscow
+🍃 BR-RTR
+text
+en
+conf t
+hostname br-rtr.au-team.irpo
+ip domain-name au-team.irpo
+
+port te0
+service-instance te0/isp-br
+encapsulation untagged
+ex
+ex
+
+port te1
+service-instance te1/br-net
+encapsulation untagged
+ex
+
+# откуда взять IP: из таблицы адресации (BR-RTR внешний)
+interface e1
+ip address 172.16.2.2/28
+connect port te0 service-instance te0/isp-br
+ip nat outside
+ex
+
+# откуда взять IP: из таблицы адресации (сеть BR-SRV)
+# СВЕРИТЬ С ЗАДАНИЕМ: маска /27 или /28
+interface e2
+ip address 192.168.2.1/28
+connect port te1 service-instance te1/br-net
+ip nat inside
+ex
+
+ntp timezone utc+3
+
+username net_admin
+# СВЕРИТЬ С ЗАДАНИЕМ: пароль (P@ssw0rd или P@$$word)
+password P@ssw0rd
+role admin
+
+# СВЕРИТЬ С ЗАДАНИЕМ: пул NAT (все внутренние IP офиса BR)
+ip nat pool nat 192.168.2.1-192.168.2.14
+ip nat source dynamic inside-to-outside pool nat overload interface e1
+
+# откуда взять IP: шлюз по умолчанию (ISP)
+ip route 0.0.0.0/0 172.16.2.1 description default
+
+# откуда взять IP: локальный и удалённый адреса туннеля (из таблицы)
+interface tunnel.1
+ip add 192.168.10.2/30
+ip tunnel 172.16.2.2 172.16.1.2 mode gre
+ip ospf authentication
+# СВЕРИТЬ С ЗАДАНИЕМ: ключ OSPF
+ip ospf authentication-key P@$$word
+ex
+
+router ospf 1
+# откуда взять IP: сеть туннеля и сеть BR-SRV
+network 192.168.10.0/30 area 0.0.0.0
+network 192.168.2.0/28 area 0.0.0.0
+passive-interface default
+no passive-interface tunnel.1
+ex
+
+write memory
+show ip ospf neighbor
+show ip route ospf
+🐧 BR-SRV
+bash
+hostnamectl set-hostname br-srv.au-team.irpo;exec bash
+
+# откуда взять IP: из таблицы адресации (BR-SRV)
+echo 192.168.2.2/28 > /etc/net/ifaces/ens18/ipv4address
+# откуда взять IP: шлюз BR-RTR
+echo default via 192.168.2.1 > /etc/net/ifaces/ens18/ipv4route
+
+systemctl restart network
+
+timedatectl set-timezone Europe/Moscow
+
+# СВЕРИТЬ С ЗАДАНИЕМ: UID пользователя (1010 или 2013 или 2026)
+useradd -s /bin/bash -u 2026 sshuser
+echo "sshuser:P@ssw0rd" | chpasswd
+gpasswd -a sshuser wheel
+echo 'sshuser ALL = (root) NOPASSWD: ALL' >> /etc/sudoers
+
+vim /etc/openssh/sshd_config
+# СВЕРИТЬ С ЗАДАНИЕМ: порт SSH (2024 или 2013 или 2026)
+Port 2026
+MaxAuthTries 2
+Banner /etc/openssh/banner
+AllowUsers sshuser
+
+echo Authorized access only > /etc/openssh/banner
+systemctl restart sshd
+
+
+1. Установка Яндекс Браузера на HQ-CLI
+
+apt-get update
+apt-get install yandex-browser-stable -y
+yandex-browser-stable
+
+2. Настройка службы сетевого времени (chrony)
+Note
+
+СВЕРИТЬ С ЗАДАНИЕМ: сервер NTP — HQ-RTR или ISP
+
+🐧 ISP (если сервер NTP — ISP)
+
+
+vim /etc/chrony.conf
+
+local stratum 5                # СВЕРИТЬ С ЗАДАНИЕМ: stratum
+allow 0.0.0.0/0
+
+systemctl enable --now chronyd
+systemctl restart chronyd
+
+chronyc tracking  #проверка
+
+
+🐧 HQ-SRV, HQ-CLI
+
+apt-get update
+apt-get install chrony -y
+vim /etc/chrony.conf
+
+# закомментировать pool pool.ntp.org iburst
+
+server 172.16.4.1 iburst  (сервер NTP ISP-HQ)
+
+systemctl restart chronyd
+systemctl enable --now chronyd
+
+🐧 BR-SRV
+
+apt-get update
+apt-get install chrony -y
+
+vim /etc/chrony.conf
+# закомментировать pool pool.ntp.org iburst
+
+
+server 172.16.5.1 iburst (сервер NTP ISP-BR)
+
+systemctl restart chronyd
+systemctl enable --now chronyd
+
+🍃 BR-RTR
+
+ntp server 172.16.5.1  (сервер NTP ISP-BR)
+exit
+write memory
+
+
+
+3. Конфигурация файлового хранилища на HQ-SRV
+
+# СВЕРИТЬ С ЗАДАНИЕМ: имя устройства md0 или md3
+
+mdadm --create /dev/md0 -l5 -n 3 /dev/sdb /dev/sdc /dev/sdd
+mkfs.ext4 /dev/md0
+
+echo "DEVICE partitions" > /etc/mdadm.conf
+mdadm --detail --scan >> /etc/mdadm.conf
+
+# СВЕРИТЬ С ЗАДАНИЕМ: точка монтирования /raid5 или /raid
+mkdir /raid
+vim /etc/fstab
+/dev/md0	/raid	ext4	defaults	0	0
+mount -av
+
+df -h
+lsblk
+
+
+
+4. Настройка NFS-сервера на HQ-SRV
+🐧 HQ-SRV
+
+apt-get install nfs-server -y
+systemctl enable --now nfs-server
+
+# СВЕРИТЬ С ЗАДАНИЕМ: /raid5/nfs или /raid/nfs
+mkdir -p /raid/nfs
+chmod 777 /raid/nfs
+
+
+echo "/raid/nfs 192.168.2.0/28(rw,sync,no_subtree_check)" >> /etc/exports  (сеть HQ-CLI c .0)
+
+exportfs -rav
+
+🐧 HQ-CLI
+
+mkdir /mnt/nfs
+
+mount 192.168.1.10:/raid/nfs /mnt/nfs   (HQ-SRV)
+
+vim /etc/fstab
+
+192.168.1.10:/raid/nfs 	/mnt/nfs	nfs	defaults,_netdev	0	0
+mount -av
+
+
+5. Развёртывание веб-приложения на HQ-SRV (Moodle)
+🐧 HQ-SRV
+
+apt-get install httpd2 apache2-mod_php8.1 php8.1 php8.1-mysqlnd php8.1-mysqli mariadb-server -y
+systemctl enable --now httpd2 mariadb
+
+mysql -u root
+# СВЕРИТЬ С ЗАДАНИЕМ: пользователь moodle или web3
+# СВЕРИТЬ С ЗАДАНИЕМ: БД moodledb или webdb
+
+CREATE DATABASE moodledb;
+CREATE USER 'moodle'@'localhost' IDENTIFIED BY 'P@ssw0rd';
+GRANT ALL PRIVILEGES ON moodledb.* TO 'moodle'@'localhost';
+FLUSH PRIVILEGES;
+exit
+
+mkdir /mnt/cdrom
+mount /dev/sr0 /mnt/cdrom
+mysql -u root moodledb < /mnt/cdrom/web/dump.sql
+
+cp /mnt/cdrom/web/index.php /var/www/html/
+cp /mnt/cdrom/web/logo.png /var/www/html/
+chown -R apache2:apache2 /var/www/html
+chmod -R 777 /var/www/html
+
+# СВЕРИТЬ С ЗАДАНИЕМ: учётные данные в index.php (web3/P@ssw0rd или moodle/P@ssw0rd)
+
+vim /var/www/html/index.php
+servername = "localhost";
+username = "web";
+password = "P@ssw0rd";
+dbname = "webdb";
+
+systemctl restart httpd2
+
+🐧 HQ-CLI
+
+http://192.168.1.10   (HQ-SRV)
+
+
+6. Настройка Ansible на BR-SRV
+
+🐧 HQ-SRV и BR-SRV
+vim /etc/openssh/sshd_config
+# раскомментируем и меняем эту строчку:
+Port 2026
+
+systemctl restart sshd
+
+🍃 HQ-RTR и BR-RTR
+
+security-profile 0
+rule 0 permit tcp any any eq 22
+exit
+security 0
+exit
+write memory
+
+show security-profile
+
+🐧 BR-SRV
+
+ssh sshuser@192.168.1.10 -p 2024 (порт) (HQ-SRV)
+ssh user@192.168.2.10 (HQ-CLI)
+ssh admin@192.168.1.1 (HQ-RTR)
+ssh admin@192.168.3.1 (BR-RTR)
+
+apt-get install ansible sshpass -y
+
+vim /etc/ansible/hosts
+
+
+# СВЕРИТЬ С ЗАДАНИЕМ: порт SSH (2024 или 2013)
+
+[hq]
+HQ-SRV ansible_port=2024 ansible_host=192.168.1.10 ansible_user=sshuser ansible_ssh_pass=P@ssw0rd ansible_python_interpreter=/usr/bin/python3
+HQ-CLI ansible_host=192.168.2.10 ansible_user=user ansible_ssh_pass=resu ansible_python_interpreter=/usr/bin/python3
+
+[routers]
+# СВЕРИТЬ С ЗАДАНИЕМ: пароль net_admin (P@ssw0rd или P@$$word)
+HQ-RTR ansible_host=192.168.1.1 ansible_user=admin ansible_password=P@$$word ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
+BR-RTR ansible_host=192.168.3.1 ansible_user=admin ansible_password=P@$$word ansible_connection=network_cli ansible_network_os=ios ansible_python_interpreter=/usr/bin/python3
+
+ansible all -m ping
+
+7. Развёртывание веб-приложения в Docker на BR-SRV
+🐧 BR-SRV
+
+apt-get update
+apt-get install docker-engine docker-compose -y
+systemctl enable --now docker
+
+mkdir -p /mnt/cdrom
+mount /dev/sr0 /mnt/cdrom
+cd /mnt/cdrom/docker
+
+# СВЕРИТЬ С ЗАДАНИЕМ: импорт образов (mariadb_latest.tar или postgresql_latest.tar)
+docker load -i site_latest.tar
+docker load -i postgresql_latest.tar
+
+docker images
+
+mkdir -p /usr/docker
+cd /usr/docker
+
+# СВЕРИТЬ С ЗАДАНИЕМ: все параметры ниже (имена, порты, БД, пароли)
+cat > /usr/docker/docker-compose.yml << 'EOF'
+services:
+  wiki:
+    image: site:latest
+    container_name: wiki
+    restart: always
+    ports:
+      - "8080:8000"
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: db
+      DB_NAME: mediawiki
+      DB_PORT: 5432
+      DB_USER: wiki
+      DB_PASS: WikiP@ssw0rd
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_DB: mediawiki
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: WikiP@ssw0rd
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+EOF
+
+docker compose up -d
+docker ps -a
+curl http://localhost:8080
+
+🐧 HQ-CLI
+
+bash
+# СВЕРИТЬ С ЗАДАНИЕМ: порт (8080 или 8083)
+
+http://192.168.3.10:8080 (BR-SRV)
+
+8. Настройка статической трансляции портов
+🍃 HQ-RTR
+
+bash
+
+# СВЕРИТЬ С ЗАДАНИЕМ: порты
+ip nat source static tcp 192.168.1.10 80 172.16.4.4 8080 (HQ-SRV) (HQ-RTR isp-hq)
+ip nat source static tcp 192.168.1.10 2024 172.16.4.4 2024
+exit
+write memory
+
+
+🍃 BR-RTR
+
+# СВЕРИТЬ С ЗАДАНИЕМ: порты
+ip nat source static tcp 192.168.3.10 8080 172.16.5.5 8080 (BR-SRV) (BR-RTR isp-br)
+ip nat source static tcp 192.168.3.10 2024 172.16.5.5 2024
+exit
+write memory
+
+🐧 ISP (проверка)
+
+bash
+apt-get install curl -y
+
+curl http://172.16.4.4:8080
+curl http://172.16.5.5:8080
+
+# СВЕРИТЬ С ЗАДАНИЕМ: порт SSH (2024 или 2013)
+
+ssh sshuser@172.16.4.4 -p 2024
+ssh sshuser@172.16.5.5 -p 2024
+
+9. Настройка nginx как обратного прокси
+🐧 HQ-SRV
+
+
+vim /etc/dnsmasq.conf
+# СВЕРИТЬ С ЗАДАНИЕМ: доменные имена (moodle/wiki или web/docker)
+
+address=/moodle.au-team.irpo/192.168.1.10 (HQ-SRV)
+address=/wiki.au-team.irpo/192.168.3.10 (BR-SRV)
+ 
+systemctl restart dnsmasq
+
+🐧 ISP
+# СВЕРИТЬ С ЗАДАНИЕМ: доменные имена
+apt-get install nginx -y
+systemctl enable --now nginx
+
+vim /etc/nginx/sites-enabled.d/reverse.conf
+nginx
+server {
+    listen 80;
+    server_name moodle.au-team.irpo;
+    
+    location / {
+        # откуда взять IP: из таблицы адресации (HQ-RTR внешний)
+        # СВЕРИТЬ С ЗАДАНИЕМ: порт
+        proxy_pass http://172.16.4.4:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+server {
+    listen 80;
+    server_name wiki.au-team.irpo;
+    
+    location / {
+        # откуда взять IP: из таблицы адресации (BR-RTR внешний)
+        # СВЕРИТЬ С ЗАДАНИЕМ: порт
+        proxy_pass http://172.16.5.5:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+bash
+nginx -t
+systemctl restart nginx
+
+🐧 HQ-CLI
+
+bash
+
+http://moodle.au-team.irpo
+http://wiki.au-team.irpo
+
+10. Web-based аутентификация
+
+# СВЕРИТЬ С ЗАДАНИЕМ: логин (WEB или Kazimir)
+
+apt-get install apache2-htpasswd -y
+htpasswd -c /etc/nginx/.htpasswd WEB
+
+vim /etc/nginx/sites-enabled.d/reverse.conf
+# добавить в блок moodle.au-team.irpo:
+auth_basic "Restricted Access";
+auth_basic_user_file /etc/nginx/.htpasswd;
+
+nginx -t
+systemctl restart nginx
+
+11. Настройка Samba DC на BR-SRV
+🐧 BR-SRV
+
+bash
+# откуда взять IP: из таблицы адресации (BR-SRV)
+vim /etc/hosts
+127.0.0.1 localhost
+192.168.3.10 BR-SRV.au-team.irpo BR-SRV
+
+vim /etc/resolv.conf
+search au-team.irpo
+nameserver 192.168.3.10
+# откуда взять IP: из таблицы адресации (HQ-SRV)
+nameserver 192.168.1.10
+
+apt-get update
+apt-get install task-samba-dc task-auth-ad-sssd -y
+
+systemctl stop samba
+rm -f /etc/samba/smb.conf
+rm -rf /var/lib/samba
+mkdir -p /var/lib/samba/sysvol
+
+samba-tool domain provision
+# realm: AU-TEAM.IRPO
+# domain: AU-TEAM
+# server-role: dc
+# dns-backend: SAMBA_INTERNAL
+# откуда взять IP: из таблицы адресации (HQ-SRV)
+# dns-forwarder: 192.168.1.10
+# adminpass: P@ssw0rd!
+
+cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+
+systemctl enable --now samba
+
+samba-tool dns delete 127.0.0.1 au-team.irpo br-srv A 172.17.0.1 -U administrator
+# откуда взять IP: из таблицы адресации (BR-SRV)
+samba-tool dns add 127.0.0.1 au-team.irpo br-srv A 192.168.3.10 -U administrator
+
+# СВЕРИТЬ С ЗАДАНИЕМ: формат имён пользователей (user№.hq или hquser№)
+samba-tool group add hq
+for i in 1 2 3 4 5; do
+samba-tool user create hquser$i P@ssw0rd$i
+done
+for i in 1 2 3 4 5; do
+samba-tool group addmembers hq hquser$i
+done
+
+zadanie-11
+🐧 HQ-CLI
+
+bash
+# СВЕРИТЬ С ЗАДАНИЕМ: имя домена, пароль администратора
+system-auth write ad au-team.irpo hq-cli AU-TEAM administrator 'P@ssw0rd!'
+reboot
+
+getent passwd hquser1
+id hquser1
+
+vim /etc/security/access.conf
++:@hq:ALL
+-:ALL:ALL
+
+visudo
+%hq ALL=(ALL) NOPASSWD: /bin/cat, /bin/grep, /usr/bin/id
+
+chown root:root /usr/bin/sudo
+chmod 4755 /usr/bin/sudo
+
+su - hquser1
+sudo id
+sudo cat /etc/passwd
+sudo bash
+zadanie-11
